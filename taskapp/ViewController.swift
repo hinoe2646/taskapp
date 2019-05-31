@@ -10,7 +10,12 @@ import UIKit
 import RealmSwift
 import UserNotifications
 
-class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
+protocol ModalViewControllerDelegate{
+    // 検索結果を引数とするデリゲートメソッド
+    func modalDidFinished(searchResultReturn: NSArray)
+}
+
+class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UISearchBarDelegate {
     
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var seaBar: UISearchBar!
@@ -18,8 +23,19 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     // Realmインスタンスを取得する
     let realm = try! Realm()
     
+    var task: Task!
+    
+    var delegate : ModalViewControllerDelegate! = nil
+    
+    var items : NSArray = []
+    
+    private var searchResult : NSArray = []
+
+    
+//    let myTask = Task()
+    
     // DB内のタスクが格納されるリスト。
-    // 日付近い順|順でソート：降順
+    // 日付近い順|順でソート：降順     "date",(false)
     // 以降内容をアップデートするとリスト内は自動的に更新される。
     var taskArray = try! Realm().objects(Task.self).sorted(byKeyPath: "date", ascending: false)
     
@@ -28,8 +44,69 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         // Do any additional setup after loading the view, typically from a nib.
         tableView.delegate = self
         tableView.dataSource = self
+        seaBar.delegate = self
+//        seaBar.enablesReturnKeyAutomatically = false
+//        searchResult = taskArray[indexPath.row]
+//
     }
+    
+   
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        seaBar.endEditing(true)     // 検索ボタン押下でキーボードを閉じる
+        print("ボタンを検知しました。")
+        print("入力された文字は、\(String(describing: seaBar.text))です")
+        
+        let resTask = realm.objects(Task.self).filter("category == '\(String(describing: seaBar.text!))'")    // !
+        print("現在のリザルト結果は : \(resTask[2])")
+        
+        searchItems(searchText: seaBar.text!)
+//        if seaBar.text == "\(realm.objects(Task.self))" {
+//
+//        print(seaBar)
+//
+//        print(realm.objects(Task.self))
+//
+//        } else {
+//
+//            print("nothing\(String(describing: seaBar))")
+//
+//        }
+//        searchResult.removeAll()    // 検索結果配列を空にする。
 
+//        if(seaBar.text == "") {     //検索文字列が空の場合はすべてを表示する。
+//            searchResult = dataList
+//        } else {                    //検索文字列を含むデータを検索結果配列に追加する。
+//            for data in dataList {
+//                if data.contains(seaBar.text!) {
+//                    searchResult.append(data)
+//                }
+//            }
+//        }
+//        テーブルを再読み込みする。
+//        tableView.reloadData()
+//        _ = realm.objects(Task.self).filter("category = '日本語'")
+    }
+    
+    func searchItems(searchText: String) {
+        print("入れ物をよびだしました")
+        print("検索用に使う文字列は、\(searchText)")
+        if searchText != "" {
+            searchResult = items.filter { item in return (item as! String).contains(searchText)} as NSArray
+        } else {
+            searchResult = items
+        }
+    }
+    
+    
+//    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+//        print("キャンセルされました")
+//        // キャンセルされた場合、検索は行わない。
+//        searchBar.text = ""
+//        self.view.endEditing(true)
+//        searchResult = items
+//    }
+
+  
     // MARK: UITableViewDataSourcecのプロトコルのメソッド
     // データの数（＝セルの数）を返すメソッド
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -47,9 +124,11 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        
+
+
         let dateString:String = formatter.string(from: task.date)
-        cell.detailTextLabel?.text = dateString
+        cell.detailTextLabel?.text =
+        "\(dateString) [\(task.category)]"
         
         return cell
     }
@@ -57,7 +136,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     // MARK: UITableVIewDelegateプロトコルのメソッド
     // 各セルをた選択した時に実行されるメソッド
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        performSegue(withIdentifier: "cellSegue",sender: nil) // 追加実装
+        performSegue(withIdentifier: "cellSegue",sender: nil)
     }
     
     // セルが削除が可能なことを伝えるメソッド
@@ -104,11 +183,11 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             inputViewController.task = taskArray[indexPath!.row]
         } else {
             let task = Task()
-            task.date = Date()
+            task.date = Date()  // 初期値
             
             let allTasks = realm.objects(Task.self)
             if allTasks.count != 0 {
-                task.id = allTasks.max(ofProperty: "id")! + 1
+                task.id = allTasks.max(ofProperty: "id")! + 1   // 初期値
             }
             
             inputViewController.task = task
@@ -121,5 +200,11 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         tableView.reloadData()
     }
     
+    
+    @objc func dismissKeyboard() {
+        // キーボードを閉じる
+        view.endEditing(true)
+    }
+
 }
 
